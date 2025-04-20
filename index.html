@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Timeline Editor</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 0; font-size: 18px; }
+    #timeline {
+      position: relative;
+      height: 150px;
+      background: #1e1e1e;
+      overflow-x: scroll;
+      white-space: nowrap;
+      padding: 15px;
+    }
+    .block {
+      position: absolute;
+      background: #4caf50;
+      color: white;
+      padding: 5px;
+      border-radius: 8px;
+      min-width: 50px;
+      height: 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      box-sizing: border-box;
+      overflow: hidden;
+      font-size: 14px;
+      transition: left 0.3s ease, width 0.3s ease;
+    }
+    .block div {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .block .fade-in {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 10px;
+      background: rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+    }
+    .block .fade-out {
+      position: absolute;
+      top: 0;
+      right: 0;
+      height: 100%;
+      width: 10px;
+      background: rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+    }
+    .selected {
+      outline: 3px solid red;
+    }
+    .resize-handle {
+      position: absolute;
+      width: 8px;
+      height: 100%;
+      top: 0;
+      cursor: ew-resize;
+      z-index: 2;
+    }
+    .left-handle { left: -4px; }
+    .right-handle { right: -4px; }
+    #inspector, #controls {
+      padding: 15px;
+      background: #f0f0f0;
+      font-size: 16px;
+    }
+    #inspector textarea {
+      width: 100%;
+      display: block;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+    #inspector input[type="number"] {
+      width: 100px;
+      font-size: 16px;
+      margin-right: 10px;
+    }
+    #playbackLine {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: red;
+      pointer-events: none;
+      z-index: 1;
+    }
+    #previewBox {
+      background: #222;
+      color: #fff;
+      padding: 15px;
+      font-size: 20px;
+    }
+    #speedControl {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="timeline"></div>
+  <div id="playbackLine"></div>
+
+  <div id="inspector">
+    <h3>Inspector</h3>
+    <textarea id="blockText" placeholder="Enter block text"></textarea>
+    <div>
+      <label for="durationAllInput">Set Duration (ticks):</label>
+      <input type="number" id="durationAllInput" min="1" max="10" value="5" />
+      <button onclick="setDurationAll()">Duration All</button>
+    </div>
+    <div>
+      <label for="spaceAllInput">Set Space (ticks):</label>
+      <input type="number" id="spaceAllInput" min="0" value="5" />
+      <button onclick="setSpaceAll()">Space All</button>
+    </div>
+    <div id="speedControl">
+      <label for="playbackSpeedInput">Playback Speed (ticks/second):</label>
+      <input type="number" id="playbackSpeedInput" min="5" max="60" value="20" />
+      <button onclick="updatePlaybackSpeed()">Set Speed</button>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button onclick="addBlock()">Add Block</button>
+    <button onclick="playTimeline()">Play</button>
+    <button onclick="exportTimeline()">Export</button>
+    <pre id="output"></pre>
+  </div>
+
+  <div id="previewBox"></div>
+
+  <script>
+    const timeline = document.getElementById('timeline');
+    const blockText = document.getElementById('blockText');
+    const output = document.getElementById('output');
+    const playbackLine = document.getElementById('playbackLine');
+    const previewBox = document.getElementById('previewBox');
+    const playbackSpeedInput = document.getElementById('playbackSpeedInput');
+
+    let blocks = [];
+    let isPlaying = false;
+
+    const TICK_SIZE = 20; // 1 tick = 20px
+    let ticksPerSecond = 20; // Default playback speed
+
+    function updatePlaybackSpeed() {
+      ticksPerSecond = parseInt(playbackSpeedInput.value);
+    }
+
+    function exportTimeline() {
+      const timelineBlocks = [...blocks].sort((a, b) => parseInt(a.style.left) - parseInt(b.style.left));
+      let result = '';
+      const chunkSize = 5;
+      let chunkCounter = 0;
+      let currentPause = 0;
+      let accumulatedPause = 0;
+
+      timelineBlocks.forEach((block, index) => {
+        const start = parseInt(block.style.left) / TICK_SIZE;
+        const dur = parseInt(block.dataset.duration);
+        const fadeIn = parseInt(block.dataset.fadeIn);
+        const fadeOut = parseInt(block.dataset.fadeOut);
+        const lines = (block.dataset.text || '').split('\n');
+        let line1 = lines[0]?.replace(/"/g, '\\"') || '';
+        let line2 = lines[1]?.replace(/"/g, '\\"') || '';
+	if (!line1) line1 = '&f';
+	if (!line2) line2 = '&f';
+
+        // Calculate pause before this title
+        const pauseBefore = start - currentPause;
+
+        if (chunkCounter % chunkSize === 0) {
+          if (chunkCounter > 0) {
+            result += `}\n\npause ${accumulatedPause}\n\n`; // Add accumulated pause between chunks
+            accumulatedPause = 0;
+          }
+          result += `if () {\n`;
+        }
+
+        // Add pause before each title (if applicable)
+        if (pauseBefore > 0) {
+          result += `  pause ${pauseBefore}\n`;
+          accumulatedPause += pauseBefore;
+        }
+
+        result += `  title "${line1}" "${line2}" ${fadeIn} ${dur} ${fadeOut}\n`;
+
+        chunkCounter++;
+        currentPause = start + dur; // Update current position
+      });
+
+      result += '}\n';
+      output.textContent = result;
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        playTimeline();
+      }
+    });
+
+    function playTimeline() {
+      if (isPlaying) {
+        isPlaying = false;
+        previewBox.textContent = '';
+        playbackLine.style.transition = '';
+        playbackLine.style.left = '0px';
+        return;
+      }
+
+      isPlaying = true;
+      const sortedBlocks = [...blocks].sort((a, b) => parseInt(a.style.left) - parseInt(b.style.left));
+      let playbackX = 0;
+
+      function updatePlayback() {
+        if (!isPlaying) {
+          previewBox.textContent = '';
+          return;
+        }
+
+        playbackX += 1;
+        playbackLine.style.left = `${playbackX}px`;
+
+        // Check for active blocks
+        let activeBlock = null;
+        for (const block of sortedBlocks) {
+          const blockLeft = parseInt(block.style.left);
+          const blockRight = blockLeft + parseInt(block.style.width);
+
+          if (playbackX >= blockLeft && playbackX <= blockRight) {
+            activeBlock = block;
+            break;
+          }
+        }
+
+        previewBox.textContent = activeBlock ? activeBlock.dataset.text : '';
+
+        setTimeout(updatePlayback, 1000 / ticksPerSecond); // Playback speed
+      }
+
+      updatePlayback();
+    }
+
+    function addBlock(duplicate = null) {
+      const block = document.createElement('div');
+      block.classList.add('block');
+
+      if (duplicate) {
+        block.dataset.text = duplicate.dataset.text;
+        block.dataset.fadeIn = duplicate.dataset.fadeIn;
+        block.dataset.fadeOut = duplicate.dataset.fadeOut;
+        block.dataset.duration = duplicate.dataset.duration;
+        block.style.width = duplicate.style.width;
+        block.style.left = `${parseInt(duplicate.style.left) + 120}px`; // Offset duplicated block
+      } else {
+        block.dataset.text = blockText.value;
+        block.dataset.fadeIn = 0;
+        block.dataset.fadeOut = 0;
+        block.dataset.duration = 5;
+        block.style.width = `${5 * TICK_SIZE}px`; // Default duration of 5 ticks
+        block.style.left = `${blocks.length * 120}px`;
+      }
+
+      block.innerHTML = block.dataset.text
+        .split('\n')
+        .map((line) => `<div>${line}</div>`)
+        .join('');
+
+      const leftHandle = document.createElement('div');
+      leftHandle.classList.add('resize-handle', 'left-handle');
+      block.appendChild(leftHandle);
+
+      const rightHandle = document.createElement('div');
+      rightHandle.classList.add('resize-handle', 'right-handle');
+      block.appendChild(rightHandle);
+
+      updateFadeVisuals(block);
+      makeDraggable(block);
+      makeResizable(block, leftHandle, rightHandle);
+
+      block.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+
+        const menu = document.createElement('div');
+        menu.style.position = 'absolute';
+        menu.style.left = `${e.pageX}px`;
+        menu.style.top = `${e.pageY}px`;
+        menu.style.background = '#fff';
+        menu.style.border = '1px solid #ccc';
+        menu.style.padding = '10px';
+
+        const originalText = block.dataset.text;
+        const originalFadeIn = block.dataset.fadeIn;
+        const originalFadeOut = block.dataset.fadeOut;
+
+        menu.innerHTML = `
+          <textarea rows="2">${originalText}</textarea><br>
+          Fade In: <input type="range" min="0" max="3" value="${originalFadeIn}"><br>
+          Fade Out: <input type="range" min="0" max="3" value="${originalFadeOut}"><br>
+          <button id="saveBtn">Save</button>
+          <button id="cancelBtn">Cancel</button>
+          <button id="deleteBtn">Delete</button>
+          <button id="duplicateBtn">Duplicate</button>
+        `;
+
+        document.body.appendChild(menu);
+
+        const textArea = menu.querySelector('textarea');
+        const fadeInInput = menu.querySelectorAll('input')[0];
+        const fadeOutInput = menu.querySelectorAll('input')[1];
+        const saveBtn = menu.querySelector('#saveBtn');
+        const cancelBtn = menu.querySelector('#cancelBtn');
+        const deleteBtn = menu.querySelector('#deleteBtn');
+        const duplicateBtn = menu.querySelector('#duplicateBtn');
+
+        saveBtn.onclick = () => {
+          block.dataset.text = textArea.value;
+          block.dataset.fadeIn = fadeInInput.value;
+          block.dataset.fadeOut = fadeOutInput.value;
+          block.innerHTML = textArea.value
+            .split('\n')
+            .map((line) => `<div>${line}</div>`)
+            .join('');
+          block.appendChild(leftHandle);
+          block.appendChild(rightHandle);
+          updateFadeVisuals(block);
+          menu.remove();
+        };
+
+        cancelBtn.onclick = () => menu.remove();
+
+        deleteBtn.onclick = () => {
+          block.remove();
+          blocks = blocks.filter((b) => b !== block);
+          menu.remove();
+        };
+
+        duplicateBtn.onclick = () => {
+          addBlock(block);
+          menu.remove();
+        };
+
+        document.addEventListener(
+          'click',
+          (e) => {
+            if (!menu.contains(e.target)) {
+              menu.remove();
+            }
+          },
+          { once: true }
+        );
+      });
+
+      timeline.appendChild(block);
+      blocks.push(block);
+    }
+
+    function updateFadeVisuals(block) {
+      const fadeIn = parseInt(block.dataset.fadeIn);
+      const fadeOut = parseInt(block.dataset.fadeOut);
+
+      if (fadeIn > 0) {
+        let fadeInDiv = block.querySelector('.fade-in');
+        if (!fadeInDiv) {
+          fadeInDiv = document.createElement('div');
+          fadeInDiv.classList.add('fade-in');
+          block.appendChild(fadeInDiv);
+        }
+      } else {
+        const fadeInDiv = block.querySelector('.fade-in');
+        if (fadeInDiv) fadeInDiv.remove();
+      }
+
+      if (fadeOut > 0) {
+        let fadeOutDiv = block.querySelector('.fade-out');
+        if (!fadeOutDiv) {
+          fadeOutDiv = document.createElement('div');
+          fadeOutDiv.classList.add('fade-out');
+          block.appendChild(fadeOutDiv);
+        }
+      } else {
+        const fadeOutDiv = block.querySelector('.fade-out');
+        if (fadeOutDiv) fadeOutDiv.remove();
+      }
+    }
+
+    function makeDraggable(el) {
+      let offsetX = 0;
+      let dragging = false;
+
+      el.addEventListener('mousedown', (e) => {
+        if (e.target.classList.contains('resize-handle')) return;
+        offsetX = e.clientX - el.offsetLeft;
+        dragging = true;
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+
+        const snappedX = Math.round((e.clientX - offsetX) / TICK_SIZE) * TICK_SIZE;
+
+        if (!isOverlapping(snappedX, parseInt(el.style.width), el)) {
+          el.style.left = `${snappedX}px`;
+        }
+      });
+
+      document.addEventListener('mouseup', () => (dragging = false));
+    }
+
+    function makeResizable(el, leftHandle, rightHandle) {
+      [leftHandle, rightHandle].forEach((handle) => {
+        let resizing = false;
+        let startX, startWidth;
+
+        handle.addEventListener('mousedown', (e) => {
+          resizing = true;
+          startX = e.clientX;
+          startWidth = parseInt(el.style.width);
+          e.preventDefault();
+          e.stopPropagation();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+          if (!resizing) return;
+
+          const delta = handle === rightHandle ? e.clientX - startX : startX - e.clientX;
+          let newWidth = startWidth + (handle === rightHandle ? delta : -delta);
+
+          newWidth = Math.round(newWidth / TICK_SIZE) * TICK_SIZE; // Snap to tick size
+          newWidth = Math.max(TICK_SIZE, Math.min(10 * TICK_SIZE, newWidth)); // Limit duration between 1 and 10
+
+          if (!isOverlapping(parseInt(el.style.left), newWidth, el)) {
+            el.style.width = `${newWidth}px`;
+            el.dataset.duration = Math.round(newWidth / TICK_SIZE);
+          }
+        });
+
+        document.addEventListener('mouseup', () => (resizing = false));
+      });
+    }
+
+    function isOverlapping(left, width, currentBlock) {
+      const right = left + width;
+
+      for (const block of blocks) {
+        if (block === currentBlock) continue;
+
+        const blockLeft = parseInt(block.style.left);
+        const blockRight = blockLeft + parseInt(block.style.width);
+
+        if (left < blockRight && right > blockLeft) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function setDurationAll() {
+      const duration = parseInt(document.getElementById('durationAllInput').value);
+
+      blocks.forEach((block) => {
+        block.style.width = `${duration * TICK_SIZE}px`;
+        block.dataset.duration = duration;
+      });
+
+      repositionBlocks();
+    }
+
+    function setSpaceAll() {
+      repositionBlocks();
+    }
+
+    function repositionBlocks() {
+      const space = parseInt(document.getElementById('spaceAllInput').value);
+      let currentTime = 0;
+
+      blocks
+        .sort((a, b) => parseInt(a.style.left) - parseInt(b.style.left))
+        .forEach((block) => {
+          block.style.left = `${currentTime * TICK_SIZE}px`;
+          currentTime += parseInt(block.dataset.duration) + space;
+        });
+    }
+  </script>
+</body>
+</html>
