@@ -1,40 +1,103 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Timeline Editor</title>
+  <title>Title Timeline</title>
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 0; font-size: 18px; }
+    @font-face {
+      font-family: 'MinecraftRegular';
+      src: url('MinecraftRegular-Bmg3.otf') format('opentype');
+    }
+
+    @font-face {
+      font-family: 'MinecraftBold';
+      src: url('MinecraftBold-nMK1.otf') format('opentype');
+    }
+
+    body {
+      margin: 0;
+      background-color: #1e1e1e;
+      color: #fff;
+      font-family: 'MinecraftRegular', monospace;
+      font-size: 16px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
     #timeline {
       position: relative;
       height: 150px;
-      background: #1e1e1e;
-      overflow-x: scroll;
+      background: #2a2a2a;
+      overflow-x: auto;
       white-space: nowrap;
-      padding: 15px;
+      padding: 100px;
+      min-width: 100%;
+      box-sizing: border-box;
+      border-top: 2px solid #444;
     }
+
+    #playbackLine {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: #2d8ceb;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    #playheadHandle {
+      width: 10px;
+      height: 10px;
+      background: #2d8ceb;
+      position: absolute;
+      top: -5px;
+      left: -4px;
+      border-radius: 2px;
+      cursor: ew-resize;
+      pointer-events: auto;
+    }
+
     .block {
       position: absolute;
-      background: #4caf50;
+      background: #6b46c1;
       color: white;
       padding: 5px;
-      border-radius: 8px;
-      min-width: 50px;
+      border-radius: 0px;
+      min-width: 0;
       height: 40px;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      box-sizing: border-box;
-      overflow: hidden;
       font-size: 14px;
-      transition: left 0.3s ease, width 0.3s ease;
+      font-family: 'MinecraftBold', monospace;
+      overflow: hidden;
+      cursor: move;
+      box-sizing: border-box;
+      border: 2px solid #7a5df0;
+      transition: left 0.1s ease, width 0.1s ease;
     }
+
+    .block.selected {
+      border-color: white;
+    }
+
+    .block .duration-label {
+      font-size: 13px;
+      color: #ccc;
+      position: absolute;
+      bottom: 2px;
+      right: 5px;
+      font-family: 'MinecraftRegular', monospace;
+    }
+
     .block div {
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
+
     .block .fade-in {
       position: absolute;
       top: 0;
@@ -44,6 +107,7 @@
       background: rgba(0, 0, 0, 0.5);
       pointer-events: none;
     }
+
     .block .fade-out {
       position: absolute;
       top: 0;
@@ -53,9 +117,7 @@
       background: rgba(0, 0, 0, 0.5);
       pointer-events: none;
     }
-    .selected {
-      outline: 3px solid red;
-    }
+
     .resize-handle {
       position: absolute;
       width: 8px;
@@ -64,93 +126,653 @@
       cursor: ew-resize;
       z-index: 2;
     }
-    .left-handle { left: -4px; }
-    .right-handle { right: -4px; }
-    #inspector, #controls {
-      padding: 15px;
-      background: #f0f0f0;
-      font-size: 16px;
+
+    .left-handle {
+      left: -4px;
     }
-    #inspector textarea {
-      width: 100%;
-      display: block;
-      margin-bottom: 10px;
-      font-size: 16px;
+
+    .right-handle {
+      right: -4px;
     }
-    #inspector input[type="number"] {
-      width: 100px;
-      font-size: 16px;
-      margin-right: 10px;
+
+    .selected {
+      outline: 2px solid white;
     }
+
     #playbackLine {
       position: absolute;
       top: 0;
       bottom: 0;
       width: 3px;
-      background: red;
+      background: #274e75;
       pointer-events: none;
-      z-index: 1;
+      z-index: 5;
     }
+
     #previewBox {
-      background: #222;
-      color: #fff;
+      background-color: #000;
+      color: white;
+      font-family: 'MinecraftBold', monospace;
       padding: 15px;
       font-size: 20px;
+      text-align: center;
+      border-top: 2px solid #444;
+      border-bottom: 1px solid #444;
     }
-    #speedControl {
+
+    #inspector,
+    #controls {
+      padding: 15px;
+      background: #2a2a2a;
+      color: white;
+      font-family: 'MinecraftRegular', monospace;
+      border-top: 1px solid #444;
+    }
+
+    #inspector input,
+    #inspector textarea {
+      font-family: 'MinecraftRegular', monospace;
+      font-size: 16px;
+      background-color: #111;
+      color: #fff;
+      border: 1px solid #555;
+      padding: 5px;
+      margin-bottom: 10px;
+    }
+
+    button {
+      font-family: 'MinecraftBold', monospace;
+      background: #444;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      cursor: pointer;
+      margin-right: 5px;
+    }
+
+    button:hover {
+      background: #666;
+    }
+
+    h3 {
+      font-family: 'MinecraftBold', monospace;
+      margin-top: 0;
+    }
+
+    pre {
+      background: #111;
+      color: #0f0;
+      padding: 10px;
+      white-space: pre-wrap;
+      overflow-x: auto;
+      max-height: 200px;
       margin-top: 10px;
+    }
+
+    #blockText {
+      width: 300px;
+      box-sizing: border-box;
+    }
+
+    #outputContainer {
+      width: 100%;
+      max-width: 600px;
+      height: 80vh;
+      position: relative;
+      margin: 10px auto;
     }
   </style>
 </head>
+
 <body>
-  <div id="timeline"></div>
-  <div id="playbackLine"></div>
+
+  <div id="timeline">
+    <div id="playbackLine">
+      <div id="playheadHandle"></div>
+    </div>
+  </div>
+
+  <div id="previewBox">🎬 Add a block and hit play!</div>
 
   <div id="inspector">
-    <h3>Inspector</h3>
-    <textarea id="blockText" placeholder="Enter block text"></textarea>
-    <div>
-      <label for="durationAllInput">Set Duration (ticks):</label>
-      <input type="number" id="durationAllInput" min="1" max="10" value="5" />
-      <button onclick="setDurationAll()">Duration All</button>
+    <h3>&6[&eTitle Timeline&6] &8by &btdarth &8and &anotben&8.</h3>
+    <h5>&8TIP: &7Right-Click a block in the timeline for more options.</h5>
+    <textarea id="blockText" rows="2" placeholder="Enter block text here..."></textarea>
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+      <label for="durationAllInput" style="width: 130px;">Set Duration (ticks):</label>
+      <input type="number" id="durationAllInput" min="1" max="10" value="5" style="width: 60px;" />
+      <button onclick="setDurationAll()">&7Duration All</button>
     </div>
-    <div>
-      <label for="spaceAllInput">Set Space (ticks):</label>
-      <input type="number" id="spaceAllInput" min="0" value="5" />
-      <button onclick="setSpaceAll()">Space All</button>
-    </div>
-    <div id="speedControl">
-      <label for="playbackSpeedInput">Playback Speed (ticks/second):</label>
-      <input type="number" id="playbackSpeedInput" min="5" max="60" value="20" />
-      <button onclick="updatePlaybackSpeed()">Set Speed</button>
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+      <label for="spaceAllInput" style="width: 130px;">Set Delay (ticks):</label>
+      <input type="number" id="spaceAllInput" min="0" value="3" style="width: 60px;" />
+      <button onclick="setSpaceAll()">&7Space All</button>
     </div>
   </div>
 
   <div id="controls">
-    <button onclick="addBlock()">Add Block</button>
-    <button onclick="playTimeline()">Play</button>
-    <button onclick="exportTimeline()">Export</button>
-    <pre id="output"></pre>
+    <button onclick="addBlock()">&aAdd Title</button>
+    <button onclick="playTimeline()">&2Play</button>
+    <button onclick="exportTimeline()">&cExport</button>
+    <button onclick="showImportBox()">&4Import</button>
+  </div>
+  <div id="outputContainer" style="width: 100%; height: 80vh; position: relative; margin-top: 10px;">
+    <pre id="output" style="width: 100%; height: 100%;"></pre>
+    <button id="copyButton" onclick="copyToClipboard()" style="position: absolute; top: 5px; right: 5px;">📋</button>
+  </div>
+  <div id="importModal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+    <div
+      style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #222; padding: 20px; border-radius: 5px; width: 80%; max-width: 600px;">
+      <button onclick="closeImportModal()"
+        style="float: right; background: transparent; color: white; border: none; font-size: 20px;">×</button>
+      <h3 style="color: white;">Import Timeline</h3>
+      <textarea id="importText" style="width: 100%; height: 150px; resize: none;"
+        placeholder="Paste exported code here"></textarea>
+      <button onclick="importTimelineFromModal()" style="margin-top: 10px;">Import Timeline</button>
+    </div>
   </div>
 
-  <div id="previewBox"></div>
-
   <script>
+    function selectBlock(block) {
+      if (selectedBlock) selectedBlock.classList.remove('selected');
+      selectedBlock = block;
+      block.classList.add('selected');
+    }
+
+    function updateFadeVisuals(block) {
+      const fadeIn = parseInt(block.dataset.fadeIn);
+      const fadeOut = parseInt(block.dataset.fadeOut);
+
+      if (fadeIn > 0) {
+        if (!block.querySelector('.fade-in')) {
+          const div = document.createElement('div');
+          div.classList.add('fade-in');
+          block.appendChild(div);
+        }
+      } else {
+        const el = block.querySelector('.fade-in');
+        if (el) el.remove();
+      }
+
+      if (fadeOut > 0) {
+        if (!block.querySelector('.fade-out')) {
+          const div = document.createElement('div');
+          div.classList.add('fade-out');
+          block.appendChild(div);
+        }
+      } else {
+        const el = block.querySelector('.fade-out');
+        if (el) el.remove();
+      }
+    }
+
+    let playbackX = 0;
+    let isDraggingPlayhead = false;
+
+    function escapeHTML(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function parseMinecraftCodes(text) {
+      const colorMap = {
+        '0': '#000000', '1': '#0000AA', '2': '#00AA00', '3': '#00AAAA',
+        '4': '#AA0000', '5': '#AA00AA', '6': '#FFAA00', '7': '#AAAAAA',
+        '8': '#555555', '9': '#5555FF', 'a': '#55FF55', 'b': '#55FFFF',
+        'c': '#FF5555', 'd': '#FF55FF', 'e': '#FFFF55', 'f': '#FFFFFF'
+      };
+
+      const formatMap = {
+        'l': 'font-weight: bold;',
+        'n': 'text-decoration: underline;',
+        'm': 'text-decoration: line-through;',
+        'o': 'font-style: italic;',
+        'r': ''
+      };
+
+      let currentStyles = '';
+      let hasBold = false;
+      let outputLines = [];
+
+      const lines = text.split('\n').slice(0, 2);
+
+      for (const line of lines) {
+        let html = '';
+        let parts = line.split(/(&[0-9a-frlomnk])/gi);
+
+        for (let part of parts) {
+          if (part.startsWith('&')) {
+            const code = part[1]?.toLowerCase();
+            if (colorMap[code]) {
+              currentStyles += `color: ${colorMap[code]};`;
+            } else if (formatMap.hasOwnProperty(code)) {
+              if (code === 'r') {
+                currentStyles = '';
+              } else {
+                currentStyles += formatMap[code];
+                if (code === 'l') hasBold = true;
+              }
+            }
+          } else if (part) {
+            html += `<span style="${currentStyles}">${escapeHTML(part)}</span>`;
+          }
+        }
+
+        outputLines.push(`<div>${html}</div>`);
+      }
+
+      const font = hasBold ? 'MinecraftBold' : 'MinecraftRegular';
+      return `<div style="font-family: ${font}, monospace;">${outputLines.join('')}</div>`;
+    }
+
+    function applyMinecraftColors() {
+      document.querySelectorAll('button, h3, h5').forEach(el => {
+        const txt = el.textContent;
+        if (txt.includes('&')) {
+          el.innerHTML = parseMinecraftCodes(txt);
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', applyMinecraftColors);
+
     const timeline = document.getElementById('timeline');
-    const blockText = document.getElementById('blockText');
-    const output = document.getElementById('output');
     const playbackLine = document.getElementById('playbackLine');
     const previewBox = document.getElementById('previewBox');
-    const playbackSpeedInput = document.getElementById('playbackSpeedInput');
+    const output = document.getElementById('output');
+    const blockText = document.getElementById('blockText');
 
     let blocks = [];
+    let selectedBlock = null;
     let isPlaying = false;
+    const TICK_SIZE = 20;
+    let ticksPerSecond = 200;
 
-    const TICK_SIZE = 20; // 1 tick = 20px
-    let ticksPerSecond = 20; // Default playback speed
+    let undoStack = [];
+    let redoStack = [];
 
-    function updatePlaybackSpeed() {
-      ticksPerSecond = parseInt(playbackSpeedInput.value);
+    function snapshotTimeline() {
+      return blocks.map(block => ({
+        text: block.dataset.text,
+        fadeIn: block.dataset.fadeIn,
+        fadeOut: block.dataset.fadeOut,
+        duration: block.dataset.duration,
+        width: block.style.width,
+        left: block.style.left
+      }));
+    }
+
+    function restoreTimeline(snapshot) {
+      blocks.forEach(b => b.remove());
+      blocks = [];
+      selectedBlock = null;
+      snapshot.forEach(state => {
+        const block = document.createElement('div');
+        block.classList.add('block');
+        block.dataset.text = state.text;
+        block.dataset.fadeIn = state.fadeIn;
+        block.dataset.fadeOut = state.fadeOut;
+        block.dataset.duration = state.duration;
+        block.style.width = state.width;
+        block.style.left = state.left;
+        block.innerHTML = state.text.split('\n').map(line => `<div>${line}</div>`).join('');
+        block.setAttribute('title', state.text);
+        const durationLabel = document.createElement('div');
+        durationLabel.className = 'duration-label';
+        durationLabel.textContent = `${state.duration}t`;
+        block.appendChild(durationLabel);
+        const leftHandle = document.createElement('div');
+        leftHandle.classList.add('resize-handle', 'left-handle');
+        block.appendChild(leftHandle);
+        const rightHandle = document.createElement('div');
+        rightHandle.classList.add('resize-handle', 'right-handle');
+        block.appendChild(rightHandle);
+        updateFadeVisuals(block);
+        makeDraggable(block);
+        makeResizable(block, leftHandle, rightHandle);
+        block.addEventListener('click', e => { e.stopPropagation(); selectBlock(block); });
+        timeline.appendChild(block);
+        blocks.push(block);
+      });
+      if (!timeline.dataset.deselectAttached) {
+        timeline.addEventListener('click', e => {
+          if (e.target === timeline && selectedBlock) {
+            selectedBlock.classList.remove('selected');
+            selectedBlock = null;
+          }
+        });
+        timeline.dataset.deselectAttached = "true";
+      }
+    }
+
+    function pushHistory() {
+      undoStack.push(snapshotTimeline());
+      redoStack = [];
+    }
+
+    function undoTimeline() {
+      if (undoStack.length === 0) return;
+      redoStack.push(snapshotTimeline());
+      const snapshot = undoStack.pop();
+      restoreTimeline(snapshot);
+    }
+
+    function redoTimeline() {
+      if (redoStack.length === 0) return;
+      undoStack.push(snapshotTimeline());
+      const snapshot = redoStack.pop();
+      restoreTimeline(snapshot);
+    }
+
+    function addBlock(duplicate = null) {
+      const block = document.createElement('div');
+      block.classList.add('block');
+      block.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectBlock(block);
+      });
+
+      timeline.addEventListener('click', (e) => {
+        if (e.target === timeline) {
+          if (selectedBlock) {
+            selectedBlock.classList.remove('selected');
+            selectedBlock = null;
+          }
+        }
+      });
+
+      if (duplicate) {
+        block.dataset.text = duplicate.dataset.text;
+        block.dataset.fadeIn = duplicate.dataset.fadeIn;
+        block.dataset.fadeOut = duplicate.dataset.fadeOut;
+        block.dataset.duration = duplicate.dataset.duration;
+        block.style.width = duplicate.style.width;
+        let baseLeft = parseInt(duplicate.style.left);
+        let dupWidth = parseInt(duplicate.style.width);
+        let candidateLeft = baseLeft + 120;
+        let candidateRight = candidateLeft + dupWidth;
+        let sorted = blocks.filter(b => parseInt(b.style.left) >= candidateLeft)
+          .sort((a, b) => parseInt(a.style.left) - parseInt(b.style.left));
+        sorted.forEach(b => {
+          let bLeft = parseInt(b.style.left);
+          if (bLeft < candidateRight) {
+            let shift = candidateRight - bLeft;
+            b.style.left = `${bLeft + shift}px`;
+            candidateRight = parseInt(b.style.left) + parseInt(b.style.width);
+          }
+        });
+        block.style.left = `${candidateLeft}px`;
+      } else {
+        block.dataset.text = blockText.value;
+        block.dataset.fadeIn = 0;
+        block.dataset.fadeOut = 0;
+        block.dataset.duration = 5;
+        block.style.width = `${5 * TICK_SIZE}px`;
+        block.style.left = `${blocks.length * 120}px`;
+      }
+
+      block.innerHTML = block.dataset.text
+        .split('\n')
+        .map(line => `<div>${line}</div>`)
+        .join('');
+      block.setAttribute('title', block.dataset.text);
+      const durationLabel = document.createElement('div');
+      durationLabel.className = 'duration-label';
+      durationLabel.textContent = `${block.dataset.duration}t`;
+      block.appendChild(durationLabel);
+
+      const leftHandle = document.createElement('div');
+      leftHandle.classList.add('resize-handle', 'left-handle');
+      block.appendChild(leftHandle);
+
+      const rightHandle = document.createElement('div');
+      rightHandle.classList.add('resize-handle', 'right-handle');
+      block.appendChild(rightHandle);
+
+      updateFadeVisuals(block);
+      makeDraggable(block);
+      makeResizable(block, leftHandle, rightHandle);
+
+      block.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const menu = document.createElement('div');
+        menu.style.position = 'absolute';
+        menu.style.left = `${e.pageX}px`;
+        menu.style.top = `${e.pageY}px`;
+        menu.style.background = '#2a2a2a';
+        menu.style.color = 'white';
+        menu.style.padding = '10px';
+        menu.style.border = '1px solid #555';
+        menu.innerHTML = `
+          <textarea rows="2">${block.dataset.text}</textarea><br>
+          Fade In: <input type="range" min="0" max="3" value="${block.dataset.fadeIn}"><br>
+          Fade Out: <input type="range" min="0" max="3" value="${block.dataset.fadeOut}"><br>
+          <button id="saveBtn">Save</button>
+          <button id="cancelBtn">Cancel</button>
+          <button id="deleteBtn">Delete</button>
+          <button id="duplicateBtn">Duplicate</button>
+        `;
+        document.body.appendChild(menu);
+
+        menu.querySelector('#saveBtn').onclick = () => {
+          block.dataset.text = menu.querySelector('textarea').value;
+          block.dataset.fadeIn = menu.querySelectorAll('input')[0].value;
+          block.dataset.fadeOut = menu.querySelectorAll('input')[1].value;
+          block.innerHTML = block.dataset.text
+            .split('\n')
+            .map(line => `<div>${line}</div>`)
+            .join('');
+          block.setAttribute('title', block.dataset.text);
+          block.appendChild(leftHandle);
+          block.appendChild(rightHandle);
+          updateFadeVisuals(block);
+          menu.remove();
+        };
+        menu.querySelector('#cancelBtn').onclick = () => menu.remove();
+        menu.querySelector('#deleteBtn').onclick = () => { block.remove(); blocks = blocks.filter(b => b !== block); menu.remove(); };
+        menu.querySelector('#duplicateBtn').onclick = () => { addBlock(block); menu.remove(); };
+
+        document.addEventListener('click', e => { if (!menu.contains(e.target)) menu.remove(); }, { once: true });
+      });
+
+      timeline.appendChild(block);
+      blocks.push(block);
+    }
+
+    function makeDraggable(el) {
+      let dragging = false;
+      let draggingHappened = false;
+      let offsetX = 0;
+      el.addEventListener('mousedown', e => {
+        if (e.target.classList.contains('resize-handle')) return;
+        offsetX = e.clientX - el.offsetLeft;
+        dragging = true;
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        const candidate = Math.round((e.clientX - offsetX) / TICK_SIZE) * TICK_SIZE;
+        const currentWidth = parseInt(el.style.width);
+        let collision = false;
+        blocks.forEach(other => {
+          if (other === el) return;
+          const otherLeft = parseInt(other.style.left);
+          const otherWidth = parseInt(other.style.width);
+          const otherRight = otherLeft + otherWidth;
+          const candidateRight = candidate + currentWidth;
+          if (!(candidateRight <= otherLeft || candidate >= otherRight)) {
+            collision = true;
+          }
+        });
+        if (!collision) {
+          if (el.style.left !== `${Math.max(0, candidate)}px`) {
+            draggingHappened = true;
+          }
+          el.style.left = `${Math.max(0, candidate)}px`;
+        }
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (dragging && draggingHappened) {
+          pushHistory();
+        }
+        dragging = false;
+        draggingHappened = false;
+      });
+    }
+
+    function makeResizable(el, leftHandle, rightHandle) {
+      [leftHandle, rightHandle].forEach(handle => {
+        let resizing = false;
+        let startX, startWidth, startLeft;
+        handle.addEventListener('mousedown', e => {
+          resizing = true;
+          startX = e.clientX;
+          startWidth = parseInt(el.style.width);
+          startLeft = parseInt(el.style.left);
+          e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', e => {
+          if (!resizing) return;
+          const dx = e.clientX - startX;
+          let newWidth, newLeft;
+          if (handle === rightHandle) {
+            newWidth = startWidth + dx;
+            const elLeft = startLeft;
+            const candidateRight = elLeft + newWidth;
+            let minRightLimit = Infinity;
+            blocks.forEach(other => {
+              if (other === el) return;
+              const otherLeft = parseInt(other.style.left);
+              if (otherLeft > elLeft && otherLeft < minRightLimit) {
+                minRightLimit = otherLeft;
+              }
+            });
+            if (minRightLimit !== Infinity && candidateRight > minRightLimit) {
+              newWidth = minRightLimit - elLeft;
+            }
+            newWidth = Math.max(TICK_SIZE, Math.min(10 * TICK_SIZE, newWidth));
+            el.style.width = `${newWidth}px`;
+            el.dataset.duration = Math.round(newWidth / TICK_SIZE);
+          } else {
+            newWidth = startWidth - dx;
+            newLeft = startLeft + dx;
+            let maxLeftLimit = 0;
+            blocks.forEach(other => {
+              if (other === el) return;
+              const otherRight = parseInt(other.style.left) + parseInt(other.style.width);
+              if (otherRight <= startLeft && otherRight > maxLeftLimit) {
+                maxLeftLimit = otherRight;
+              }
+            });
+            if (newLeft < maxLeftLimit) {
+              newLeft = maxLeftLimit;
+              newWidth = startWidth + (startLeft - maxLeftLimit);
+            }
+            newWidth = Math.max(TICK_SIZE, Math.min(10 * TICK_SIZE, newWidth));
+            el.style.left = `${newLeft}px`;
+            el.style.width = `${newWidth}px`;
+            el.dataset.duration = Math.round(newWidth / TICK_SIZE);
+          }
+          const label = el.querySelector('.duration-label');
+          if (label) label.textContent = `${el.dataset.duration}t`;
+        });
+
+        document.addEventListener('mouseup', () => {
+          if (resizing) {
+            const currentWidth = parseInt(el.style.width);
+            const snapped = Math.round(currentWidth / TICK_SIZE) * TICK_SIZE;
+            el.style.width = `${snapped}px`;
+            el.dataset.duration = Math.round(snapped / TICK_SIZE);
+            const label = el.querySelector('.duration-label');
+            if (label) label.textContent = `${el.dataset.duration}t`;
+            pushHistory();
+          }
+          resizing = false;
+        });
+      });
+    }
+
+    function playTimeline() {
+      const lastBlockEnd = blocks.reduce((max, block) => {
+        const left = parseInt(block.style.left);
+        const width = parseInt(block.style.width);
+        return Math.max(max, left + width);
+      }, 0);
+
+      if (playbackX >= lastBlockEnd) {
+        playbackX = 0;
+        updatePlayhead();
+        updatePreview();
+      }
+
+      if (isPlaying) {
+        isPlaying = false;
+        return;
+      }
+
+      isPlaying = true;
+
+      function update() {
+        if (!isPlaying) return;
+
+        updatePlayhead();
+        updatePreview();
+
+        if (playbackX >= lastBlockEnd) {
+          isPlaying = false;
+          return;
+        }
+
+        playbackX += 1;
+        setTimeout(update, 1000 / ticksPerSecond);
+      }
+
+      update();
+    }
+
+    function updatePlayhead() {
+      playbackLine.style.left = `${playbackX}px`;
+    }
+
+    function updatePreview() {
+      const activeBlock = blocks.find(block => {
+        const left = parseInt(block.style.left);
+        const right = left + parseInt(block.style.width);
+        return playbackX >= left && playbackX <= right;
+      });
+
+      if (!activeBlock) {
+        previewBox.innerHTML = '';
+        return;
+      }
+
+      const blockLeft = parseInt(activeBlock.style.left);
+      const blockWidth = parseInt(activeBlock.style.width);
+      const fadeIn = parseInt(activeBlock.dataset.fadeIn);
+      const fadeOut = parseInt(activeBlock.dataset.fadeOut);
+      const totalTicks = parseInt(activeBlock.dataset.duration);
+
+      const localX = playbackX - blockLeft;
+      const fadeInTicks = fadeIn;
+      const fadeOutTicks = fadeOut;
+
+      let opacity = 1;
+
+      if (fadeInTicks > 0 && localX < fadeInTicks) {
+        opacity = localX / fadeInTicks;
+      }
+
+      if (fadeOutTicks > 0 && localX >= totalTicks - fadeOutTicks) {
+        opacity = (totalTicks - localX) / fadeOutTicks;
+      }
+
+      const formattedHTML = parseMinecraftCodes(activeBlock.dataset.text);
+      previewBox.innerHTML = `<div style="opacity: ${opacity.toFixed(2)}">${formattedHTML}</div>`;
     }
 
     function exportTimeline() {
@@ -167,23 +789,19 @@
         const fadeIn = parseInt(block.dataset.fadeIn);
         const fadeOut = parseInt(block.dataset.fadeOut);
         const lines = (block.dataset.text || '').split('\n');
-        let line1 = lines[0]?.replace(/"/g, '\\"') || '';
-        let line2 = lines[1]?.replace(/"/g, '\\"') || '';
-	if (!line1) line1 = '&f';
-	if (!line2) line2 = '&f';
+        let line1 = lines[0]?.replace(/"/g, '\\"') || '&f';
+        let line2 = lines[1]?.replace(/"/g, '\\"') || '&f';
 
-        // Calculate pause before this title
         const pauseBefore = start - currentPause;
 
         if (chunkCounter % chunkSize === 0) {
           if (chunkCounter > 0) {
-            result += `}\n\npause ${accumulatedPause}\n\n`; // Add accumulated pause between chunks
+            result += `}\n\npause ${accumulatedPause}\n\n`;
             accumulatedPause = 0;
           }
           result += `if () {\n`;
         }
 
-        // Add pause before each title (if applicable)
         if (pauseBefore > 0) {
           result += `  pause ${pauseBefore}\n`;
           accumulatedPause += pauseBefore;
@@ -192,304 +810,274 @@
         result += `  title "${line1}" "${line2}" ${fadeIn} ${dur} ${fadeOut}\n`;
 
         chunkCounter++;
-        currentPause = start + dur; // Update current position
+        currentPause = start + dur;
       });
 
       result += '}\n';
       output.textContent = result;
     }
 
-    document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
-        e.preventDefault();
-        playTimeline();
-      }
-    });
-
-    function playTimeline() {
-      if (isPlaying) {
-        isPlaying = false;
-        previewBox.textContent = '';
-        playbackLine.style.transition = '';
-        playbackLine.style.left = '0px';
-        return;
-      }
-
-      isPlaying = true;
-      const sortedBlocks = [...blocks].sort((a, b) => parseInt(a.style.left) - parseInt(b.style.left));
-      let playbackX = 0;
-
-      function updatePlayback() {
-        if (!isPlaying) {
-          previewBox.textContent = '';
-          return;
-        }
-
-        playbackX += 1;
-        playbackLine.style.left = `${playbackX}px`;
-
-        // Check for active blocks
-        let activeBlock = null;
-        for (const block of sortedBlocks) {
-          const blockLeft = parseInt(block.style.left);
-          const blockRight = blockLeft + parseInt(block.style.width);
-
-          if (playbackX >= blockLeft && playbackX <= blockRight) {
-            activeBlock = block;
-            break;
-          }
-        }
-
-        previewBox.textContent = activeBlock ? activeBlock.dataset.text : '';
-
-        setTimeout(updatePlayback, 1000 / ticksPerSecond); // Playback speed
-      }
-
-      updatePlayback();
-    }
-
-    function addBlock(duplicate = null) {
-      const block = document.createElement('div');
-      block.classList.add('block');
-
-      if (duplicate) {
-        block.dataset.text = duplicate.dataset.text;
-        block.dataset.fadeIn = duplicate.dataset.fadeIn;
-        block.dataset.fadeOut = duplicate.dataset.fadeOut;
-        block.dataset.duration = duplicate.dataset.duration;
-        block.style.width = duplicate.style.width;
-        block.style.left = `${parseInt(duplicate.style.left) + 120}px`; // Offset duplicated block
-      } else {
-        block.dataset.text = blockText.value;
-        block.dataset.fadeIn = 0;
-        block.dataset.fadeOut = 0;
-        block.dataset.duration = 5;
-        block.style.width = `${5 * TICK_SIZE}px`; // Default duration of 5 ticks
-        block.style.left = `${blocks.length * 120}px`;
-      }
-
-      block.innerHTML = block.dataset.text
-        .split('\n')
-        .map((line) => `<div>${line}</div>`)
-        .join('');
-
-      const leftHandle = document.createElement('div');
-      leftHandle.classList.add('resize-handle', 'left-handle');
-      block.appendChild(leftHandle);
-
-      const rightHandle = document.createElement('div');
-      rightHandle.classList.add('resize-handle', 'right-handle');
-      block.appendChild(rightHandle);
-
-      updateFadeVisuals(block);
-      makeDraggable(block);
-      makeResizable(block, leftHandle, rightHandle);
-
-      block.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-
-        const menu = document.createElement('div');
-        menu.style.position = 'absolute';
-        menu.style.left = `${e.pageX}px`;
-        menu.style.top = `${e.pageY}px`;
-        menu.style.background = '#fff';
-        menu.style.border = '1px solid #ccc';
-        menu.style.padding = '10px';
-
-        const originalText = block.dataset.text;
-        const originalFadeIn = block.dataset.fadeIn;
-        const originalFadeOut = block.dataset.fadeOut;
-
-        menu.innerHTML = `
-          <textarea rows="2">${originalText}</textarea><br>
-          Fade In: <input type="range" min="0" max="3" value="${originalFadeIn}"><br>
-          Fade Out: <input type="range" min="0" max="3" value="${originalFadeOut}"><br>
-          <button id="saveBtn">Save</button>
-          <button id="cancelBtn">Cancel</button>
-          <button id="deleteBtn">Delete</button>
-          <button id="duplicateBtn">Duplicate</button>
-        `;
-
-        document.body.appendChild(menu);
-
-        const textArea = menu.querySelector('textarea');
-        const fadeInInput = menu.querySelectorAll('input')[0];
-        const fadeOutInput = menu.querySelectorAll('input')[1];
-        const saveBtn = menu.querySelector('#saveBtn');
-        const cancelBtn = menu.querySelector('#cancelBtn');
-        const deleteBtn = menu.querySelector('#deleteBtn');
-        const duplicateBtn = menu.querySelector('#duplicateBtn');
-
-        saveBtn.onclick = () => {
-          block.dataset.text = textArea.value;
-          block.dataset.fadeIn = fadeInInput.value;
-          block.dataset.fadeOut = fadeOutInput.value;
-          block.innerHTML = textArea.value
-            .split('\n')
-            .map((line) => `<div>${line}</div>`)
-            .join('');
-          block.appendChild(leftHandle);
-          block.appendChild(rightHandle);
-          updateFadeVisuals(block);
-          menu.remove();
-        };
-
-        cancelBtn.onclick = () => menu.remove();
-
-        deleteBtn.onclick = () => {
-          block.remove();
-          blocks = blocks.filter((b) => b !== block);
-          menu.remove();
-        };
-
-        duplicateBtn.onclick = () => {
-          addBlock(block);
-          menu.remove();
-        };
-
-        document.addEventListener(
-          'click',
-          (e) => {
-            if (!menu.contains(e.target)) {
-              menu.remove();
-            }
-          },
-          { once: true }
-        );
-      });
-
-      timeline.appendChild(block);
-      blocks.push(block);
-    }
-
-    function updateFadeVisuals(block) {
-      const fadeIn = parseInt(block.dataset.fadeIn);
-      const fadeOut = parseInt(block.dataset.fadeOut);
-
-      if (fadeIn > 0) {
-        let fadeInDiv = block.querySelector('.fade-in');
-        if (!fadeInDiv) {
-          fadeInDiv = document.createElement('div');
-          fadeInDiv.classList.add('fade-in');
-          block.appendChild(fadeInDiv);
-        }
-      } else {
-        const fadeInDiv = block.querySelector('.fade-in');
-        if (fadeInDiv) fadeInDiv.remove();
-      }
-
-      if (fadeOut > 0) {
-        let fadeOutDiv = block.querySelector('.fade-out');
-        if (!fadeOutDiv) {
-          fadeOutDiv = document.createElement('div');
-          fadeOutDiv.classList.add('fade-out');
-          block.appendChild(fadeOutDiv);
-        }
-      } else {
-        const fadeOutDiv = block.querySelector('.fade-out');
-        if (fadeOutDiv) fadeOutDiv.remove();
-      }
-    }
-
-    function makeDraggable(el) {
-      let offsetX = 0;
-      let dragging = false;
-
-      el.addEventListener('mousedown', (e) => {
-        if (e.target.classList.contains('resize-handle')) return;
-        offsetX = e.clientX - el.offsetLeft;
-        dragging = true;
-        e.preventDefault();
-      });
-
-      document.addEventListener('mousemove', (e) => {
-        if (!dragging) return;
-
-        const snappedX = Math.round((e.clientX - offsetX) / TICK_SIZE) * TICK_SIZE;
-
-        if (!isOverlapping(snappedX, parseInt(el.style.width), el)) {
-          el.style.left = `${snappedX}px`;
-        }
-      });
-
-      document.addEventListener('mouseup', () => (dragging = false));
-    }
-
-    function makeResizable(el, leftHandle, rightHandle) {
-      [leftHandle, rightHandle].forEach((handle) => {
-        let resizing = false;
-        let startX, startWidth;
-
-        handle.addEventListener('mousedown', (e) => {
-          resizing = true;
-          startX = e.clientX;
-          startWidth = parseInt(el.style.width);
-          e.preventDefault();
-          e.stopPropagation();
-        });
-
-        document.addEventListener('mousemove', (e) => {
-          if (!resizing) return;
-
-          const delta = handle === rightHandle ? e.clientX - startX : startX - e.clientX;
-          let newWidth = startWidth + (handle === rightHandle ? delta : -delta);
-
-          newWidth = Math.round(newWidth / TICK_SIZE) * TICK_SIZE; // Snap to tick size
-          newWidth = Math.max(TICK_SIZE, Math.min(10 * TICK_SIZE, newWidth)); // Limit duration between 1 and 10
-
-          if (!isOverlapping(parseInt(el.style.left), newWidth, el)) {
-            el.style.width = `${newWidth}px`;
-            el.dataset.duration = Math.round(newWidth / TICK_SIZE);
-          }
-        });
-
-        document.addEventListener('mouseup', () => (resizing = false));
-      });
-    }
-
-    function isOverlapping(left, width, currentBlock) {
-      const right = left + width;
-
-      for (const block of blocks) {
-        if (block === currentBlock) continue;
-
-        const blockLeft = parseInt(block.style.left);
-        const blockRight = blockLeft + parseInt(block.style.width);
-
-        if (left < blockRight && right > blockLeft) {
-          return true;
-        }
-      }
-
-      return false;
-    }
-
     function setDurationAll() {
       const duration = parseInt(document.getElementById('durationAllInput').value);
-
-      blocks.forEach((block) => {
+      let sorted = blocks.slice().sort((a, b) => parseInt(a.style.left) - parseInt(b.style.left));
+      let gaps = [];
+      for (let i = 0; i < sorted.length; i++) {
+        if (i === 0) {
+          gaps.push(parseInt(sorted[i].style.left));
+        } else {
+          let prevRight = parseInt(sorted[i - 1].style.left) + parseInt(sorted[i - 1].style.width);
+          gaps.push(parseInt(sorted[i].style.left) - prevRight);
+        }
+      }
+      sorted.forEach(block => {
         block.style.width = `${duration * TICK_SIZE}px`;
         block.dataset.duration = duration;
       });
-
-      repositionBlocks();
+      let currentLeft = gaps[0] || 0;
+      sorted.forEach((block, index) => {
+        block.style.left = `${currentLeft}px`;
+        const label = block.querySelector('.duration-label');
+        if (label) label.textContent = `${duration}t`;
+        currentLeft += (duration * TICK_SIZE) + (gaps[index + 1] || 0);
+      });
     }
 
     function setSpaceAll() {
-      repositionBlocks();
-    }
-
-    function repositionBlocks() {
       const space = parseInt(document.getElementById('spaceAllInput').value);
       let currentTime = 0;
 
       blocks
         .sort((a, b) => parseInt(a.style.left) - parseInt(b.style.left))
-        .forEach((block) => {
+        .forEach(block => {
           block.style.left = `${currentTime * TICK_SIZE}px`;
           currentTime += parseInt(block.dataset.duration) + space;
         });
     }
+
+    document.addEventListener('keydown', (e) => {
+      const tag = document.activeElement.tagName.toLowerCase();
+      const isTyping = tag === 'input' || tag === 'textarea';
+
+      if (e.code === 'Space' && !isTyping) {
+        e.preventDefault();
+        playTimeline();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedBlock) {
+        selectedBlock.remove();
+        blocks = blocks.filter(b => b !== selectedBlock);
+        selectedBlock = null;
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!timeline.contains(e.target)) {
+        if (selectedBlock) {
+          selectedBlock.classList.remove('selected');
+          selectedBlock = null;
+        }
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      const tag = document.activeElement.tagName.toLowerCase();
+      const isTyping = tag === 'input' || tag === 'textarea';
+      if (isTyping) return;
+      if (e.ctrlKey && e.key === 'd') {
+        e.preventDefault();
+        if (selectedBlock) {
+          addBlock(selectedBlock);
+        }
+      }
+    });
+
+    playheadHandle.addEventListener('mousedown', (e) => {
+      isDraggingPlayhead = true;
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDraggingPlayhead) {
+        const rect = timeline.getBoundingClientRect();
+        playbackX = Math.max(0, e.clientX - rect.left);
+        updatePlayhead();
+        updatePreview();
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDraggingPlayhead = false;
+    });
+
+    let isDraggingTimeline = false;
+    let dragStartX = 0;
+    let initialScrollLeft = 0;
+
+    timeline.addEventListener('mousedown', (e) => {
+      if (e.target !== timeline) return;
+
+      isDraggingTimeline = true;
+      dragStartX = e.clientX;
+      initialScrollLeft = timeline.scrollLeft;
+      timeline.style.cursor = 'grabbing';
+
+      e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDraggingTimeline) return;
+
+      const dx = e.clientX - dragStartX;
+      timeline.scrollLeft = initialScrollLeft - dx;
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isDraggingTimeline) {
+        isDraggingTimeline = false;
+        timeline.style.cursor = 'default';
+      }
+    });
+
+    function copyToClipboard() {
+      const outEl = document.getElementById('output');
+      navigator.clipboard.writeText(outEl.textContent)
+        .then(() => {
+          const btn = document.getElementById('copyButton');
+          const original = btn.innerText;
+          btn.innerText = "✅";
+          setTimeout(() => { btn.innerText = original; }, 2000);
+        })
+        .catch(err => { console.error("Copy failed:", err); });
+    }
+
+    function showImportBox() {
+      document.getElementById('importModal').style.display = 'block';
+    }
+
+    function closeImportModal() {
+      document.getElementById('importModal').style.display = 'none';
+    }
+
+    function importTimelineFromModal() {
+      const code = document.getElementById('importText').value;
+      if (!code) return;
+
+      blocks.forEach(b => b.remove());
+      blocks = [];
+
+      let leftPos = 0;
+      let insideIf = false;
+
+      const lines = code.split('\n').map(l => l.trim()).filter(Boolean);
+
+      lines.forEach(line => {
+        if (line.startsWith("if")) {
+          insideIf = true;
+          return;
+        }
+        if (line === "}") {
+          insideIf = false;
+          return;
+        }
+
+        if (line.startsWith("pause")) {
+          if (!insideIf) return;
+
+          const match = line.match(/pause\s+(\d+)/);
+          if (match) {
+            const pause = parseInt(match[1] - 1);
+            leftPos += pause * TICK_SIZE;
+          }
+        } else if (line.startsWith("title")) {
+          const match = line.match(/title\s+"([^"]+)"\s+"([^"]+)"\s+(\d+)\s+(\d+)\s+(\d+)/);
+          if (match) {
+            let [, t1, t2, fadeIn, duration, fadeOut] = match;
+            if (t1 === "&f") t1 = "";
+            if (t2 === "&f") t2 = "";
+            const text = t1 + (t2 ? "\n" + t2 : "");
+
+            const block = document.createElement('div');
+            block.classList.add('block');
+            block.dataset.text = text;
+            block.dataset.fadeIn = fadeIn;
+            block.dataset.fadeOut = fadeOut;
+            block.dataset.duration = duration;
+            block.style.width = `${duration * TICK_SIZE}px`;
+            block.style.left = `${leftPos}px`;
+            block.innerHTML = text.split('\n').map(l => `<div>${l}</div>`).join('');
+            block.setAttribute('title', text);
+
+            const durationLabel = document.createElement('div');
+            durationLabel.className = 'duration-label';
+            durationLabel.textContent = `${duration}t`;
+            block.appendChild(durationLabel);
+
+            const leftHandle = document.createElement('div');
+            leftHandle.classList.add('resize-handle', 'left-handle');
+            block.appendChild(leftHandle);
+
+            const rightHandle = document.createElement('div');
+            rightHandle.classList.add('resize-handle', 'right-handle');
+            block.appendChild(rightHandle);
+
+            updateFadeVisuals(block);
+            makeDraggable(block);
+            makeResizable(block, leftHandle, rightHandle);
+            block.addEventListener('click', e => { e.stopPropagation(); selectBlock(block); });
+            block.addEventListener('contextmenu', (e) => {
+              e.preventDefault();
+              const menu = document.createElement('div');
+              menu.style.position = 'absolute';
+              menu.style.left = `${e.pageX}px`;
+              menu.style.top = `${e.pageY}px`;
+              menu.style.background = '#2a2a2a';
+              menu.style.color = 'white';
+              menu.style.padding = '10px';
+              menu.style.border = '1px solid #555';
+              menu.innerHTML = `
+                <textarea rows="2">${block.dataset.text}</textarea><br>
+                Fade In: <input type="range" min="0" max="3" value="${block.dataset.fadeIn}"><br>
+                Fade Out: <input type="range" min="0" max="3" value="${block.dataset.fadeOut}"><br>
+                <button id="saveBtn">Save</button>
+                <button id="cancelBtn">Cancel</button>
+                <button id="deleteBtn">Delete</button>
+                <button id="duplicateBtn">Duplicate</button>
+              `;
+              document.body.appendChild(menu);
+
+              menu.querySelector('#saveBtn').onclick = () => {
+                block.dataset.text = menu.querySelector('textarea').value;
+                block.dataset.fadeIn = menu.querySelectorAll('input')[0].value;
+                block.dataset.fadeOut = menu.querySelectorAll('input')[1].value;
+                block.innerHTML = block.dataset.text.split('\n').map(line => `<div>${line}</div>`).join('');
+                block.setAttribute('title', block.dataset.text);
+                block.appendChild(leftHandle);
+                block.appendChild(rightHandle);
+                updateFadeVisuals(block);
+                menu.remove();
+              };
+              menu.querySelector('#cancelBtn').onclick = () => menu.remove();
+              menu.querySelector('#deleteBtn').onclick = () => { block.remove(); blocks = blocks.filter(b => b !== block); menu.remove(); };
+              menu.querySelector('#duplicateBtn').onclick = () => { addBlock(block); menu.remove(); };
+
+              document.addEventListener('click', e => { if (!menu.contains(e.target)) menu.remove(); }, { once: true });
+            });
+
+            timeline.appendChild(block);
+            blocks.push(block);
+
+            leftPos += (duration * TICK_SIZE) + 20;
+          }
+        }
+      });
+
+      pushHistory();
+      selectedBlock = null;
+      closeImportModal();
+    }
+
   </script>
 </body>
+
 </html>
