@@ -221,6 +221,43 @@
       position: relative;
       margin: 10px auto;
     }
+
+    #inspector {
+      position: relative;
+    }
+
+    #effectsToolbar {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      text-align: center;
+      font-family: 'MinecraftBold', monospace;
+      color: white;
+    }
+
+    #effectsToolbar button {
+      cursor: move;
+      background: #444;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      margin-top: 4px;
+    }
+
+    .rainbowify-block {
+      background: #444;
+      color: white;
+      font-family: 'MinecraftBold', monospace;
+      text-align: center;
+      cursor: move;
+      user-select: none;
+      position: absolute;
+      height: 20px;
+      transition: left 0.1s ease, width 0.1s ease;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   </style>
 </head>
 
@@ -248,6 +285,10 @@
       <input type="number" id="spaceAllInput" min="0" value="3" style="width: 60px;" />
       <button onclick="setSpaceAll()">&7Space All</button>
     </div>
+    <div id="effectsToolbar">
+      <div>🪄 Effects</div>
+      <button id="rainbowifyBtn" draggable="true">&c&lR&6a&ei&an&bb&do&cw&6i&ef&ay</button>
+    </div>
   </div>
 
   <div id="controls">
@@ -274,6 +315,8 @@
   </div>
 
   <script>
+    let draggedRainbowifyBlock = null;
+
     function selectBlock(block) {
       if (selectedBlock) selectedBlock.classList.remove('selected');
       selectedBlock = block;
@@ -466,13 +509,101 @@
       restoreTimeline(snapshot);
     }
 
+    function createRainbowifyBlock(mainBlock) {
+      if (mainBlock._rainbowify) return;
+      if (!mainBlock.dataset.originalText) {
+        mainBlock.dataset.originalText = mainBlock.dataset.text;
+      }
+      applyRainbowEffect(mainBlock);
+      const rb = document.createElement('div');
+      rb.classList.add('rainbowify-block');
+      rb.dataset.type = "rainbowify";
+      rb.innerHTML = parseMinecraftCodes("&c&lR&6a&ei&an&bb&do&cw&6i&ef&ay");
+      timeline.appendChild(rb);
+      mainBlock._rainbowify = rb;
+      updateRainbowifyBlockPosition(mainBlock);
+      rb.addEventListener('dragstart', (e) => {
+        draggedRainbowifyBlock = rb;
+        e.dataTransfer.setData('effect', 'rainbowify-move');
+      });
+      rb.setAttribute("draggable", "true");
+      attachRainbowifyContextMenu(rb, mainBlock);
+    }
+
+    function updateRainbowifyBlockPosition(mainBlock) {
+      if (mainBlock._rainbowify) {
+        const mainTop = parseInt(mainBlock.style.top) || 20;
+        mainBlock._rainbowify.style.left = mainBlock.style.left;
+        mainBlock._rainbowify.style.width = mainBlock.style.width;
+        mainBlock._rainbowify.style.top = (mainTop + mainBlock.offsetHeight + 5) + "px";
+      }
+    }
+
+    function attachRainbowifyContextMenu(rb, mainBlock) {
+      rb.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const menu = document.createElement('div');
+        menu.style.position = 'absolute';
+        menu.style.left = `${e.pageX}px`;
+        menu.style.top = `${e.pageY}px`;
+        menu.style.background = '#333';
+        menu.style.color = 'white';
+        menu.style.padding = '5px';
+        menu.style.border = '1px solid #555';
+        menu.innerHTML = `<button id="rbDelete">Delete</button>
+                          <button id="rbCancel">Cancel</button>`;
+        document.body.appendChild(menu);
+
+        menu.querySelector('#rbDelete').onclick = () => {
+          removeRainbowifyFromMain(mainBlock);
+          rb.remove();
+          mainBlock._rainbowify = null;
+          menu.remove();
+        };
+        menu.querySelector('#rbCancel').onclick = () => menu.remove();
+        document.addEventListener('click', e => { if (!menu.contains(e.target)) menu.remove(); }, { once: true });
+      });
+    }
+
+    function applyRainbowEffect(mainBlock) {
+      let original = mainBlock.dataset.originalText || mainBlock.dataset.text;
+      const colors = ["&c", "&6", "&e", "&a", "&b", "&d"];
+      let result = '';
+      let letterIndex = 0;
+      for (let char of original) {
+        if (char === "\n") {
+          result += "\n";
+        } else {
+          result += colors[letterIndex % colors.length] + char;
+          letterIndex++;
+        }
+      }
+      mainBlock.dataset.text = result;
+      const leftHandle = mainBlock.querySelector('.left-handle');
+      const rightHandle = mainBlock.querySelector('.right-handle');
+      mainBlock.innerHTML = result.split('\n').map(line => `<div>${line}</div>`).join('');
+      mainBlock.setAttribute('title', result);
+      if (leftHandle) mainBlock.appendChild(leftHandle);
+      if (rightHandle) mainBlock.appendChild(rightHandle);
+      updateFadeVisuals(mainBlock);
+    }
+
+    function removeRainbowifyFromMain(mainBlock) {
+      const strippedText = mainBlock.dataset.text.replace(/&[0-9a-frlomnk]/gi, '');
+      mainBlock.dataset.text = strippedText;
+      const leftHandle = mainBlock.querySelector('.left-handle');
+      const rightHandle = mainBlock.querySelector('.right-handle');
+      mainBlock.innerHTML = strippedText.split('\n').map(line => `<div>${line}</div>`).join('');
+      mainBlock.setAttribute('title', strippedText);
+      if (leftHandle) mainBlock.appendChild(leftHandle);
+      if (rightHandle) mainBlock.appendChild(rightHandle);
+      updateFadeVisuals(mainBlock);
+    }
+
     function addBlock(duplicate = null) {
       const block = document.createElement('div');
       block.classList.add('block');
-      block.addEventListener('click', (e) => {
-        e.stopPropagation();
-        selectBlock(block);
-      });
+      block.addEventListener('click', (e) => { e.stopPropagation(); selectBlock(block); });
 
       timeline.addEventListener('click', (e) => {
         if (e.target === timeline) {
@@ -511,6 +642,7 @@
         block.dataset.duration = 5;
         block.style.width = `${5 * TICK_SIZE}px`;
         block.style.left = `${blocks.length * 120}px`;
+        block.style.top = "20px";
       }
 
       block.innerHTML = block.dataset.text
@@ -612,12 +744,18 @@
             draggingHappened = true;
           }
           el.style.left = `${Math.max(0, candidate)}px`;
+          if (el._rainbowify) {
+            updateRainbowifyBlockPosition(el);
+          }
         }
       });
 
       document.addEventListener('mouseup', () => {
         if (dragging && draggingHappened) {
           pushHistory();
+          if (el._rainbowify) {
+            updateRainbowifyBlockPosition(el);
+          }
         }
         dragging = false;
         draggingHappened = false;
@@ -680,6 +818,9 @@
           }
           const label = el.querySelector('.duration-label');
           if (label) label.textContent = `${el.dataset.duration}t`;
+          if (el._rainbowify) {
+            updateRainbowifyBlockPosition(el);
+          }
         });
 
         document.addEventListener('mouseup', () => {
@@ -691,6 +832,9 @@
             const label = el.querySelector('.duration-label');
             if (label) label.textContent = `${el.dataset.duration}t`;
             pushHistory();
+            if (el._rainbowify) {
+              updateRainbowifyBlockPosition(el);
+            }
           }
           resizing = false;
         });
@@ -756,9 +900,8 @@
       const fadeOut = parseInt(activeBlock.dataset.fadeOut);
       const totalTicks = parseInt(activeBlock.dataset.duration);
 
-      // Convert the playhead position relative to the block from pixels to ticks
-      const localX = playbackX - blockLeft; // in pixels
-      const localTick = localX / TICK_SIZE;  // now in ticks
+      const localX = playbackX - blockLeft;
+      const localTick = localX / TICK_SIZE;
 
       let opacity = 1;
       if (fadeIn > 0 && localTick < fadeIn) {
@@ -862,6 +1005,21 @@
     });
     document.addEventListener('keydown', (e) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedBlock) {
+        if (selectedBlock.dataset.type === "rainbowify") {
+          blocks.forEach(b => {
+            if (b._rainbowify === selectedBlock) {
+              removeRainbowifyFromMain(b);
+              b._rainbowify.remove();
+              b._rainbowify = null;
+            }
+          });
+          selectedBlock.remove();
+          selectedBlock = null;
+          return;
+        }
+        if (selectedBlock._rainbowify) {
+          selectedBlock._rainbowify.remove();
+        }
         selectedBlock.remove();
         blocks = blocks.filter(b => b !== selectedBlock);
         selectedBlock = null;
@@ -1074,6 +1232,38 @@
       closeImportModal();
     }
 
+    const rainbowifyBtn = document.getElementById('rainbowifyBtn');
+    rainbowifyBtn.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('effect', 'rainbowify');
+    });
+
+    timeline.addEventListener('dragover', (e) => {
+      const block = e.target.closest('.block');
+      if (block) {
+        e.preventDefault();
+      }
+    });
+
+    timeline.addEventListener('drop', (e) => {
+      const effect = e.dataTransfer.getData('effect');
+      const targetMain = e.target.closest('.block');
+      if (effect === 'rainbowify' && targetMain) {
+        createRainbowifyBlock(targetMain);
+        e.preventDefault();
+      } else if (effect === 'rainbowify-move' && targetMain) {
+        if (draggedRainbowifyBlock) {
+          blocks.forEach(b => {
+            if (b._rainbowify === draggedRainbowifyBlock) {
+              removeRainbowifyFromMain(b);
+              b._rainbowify.remove();
+              b._rainbowify = null;
+            }
+          });
+          createRainbowifyBlock(targetMain);
+        }
+        e.preventDefault();
+      }
+    });
   </script>
 </body>
 
