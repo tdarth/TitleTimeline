@@ -258,6 +258,11 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
+    .block.dimmed {
+      opacity: 0.5;
+      transition: opacity 0.2s;
+    }
   </style>
 </head>
 
@@ -1111,6 +1116,45 @@
       if (isDraggingTimeline) {
         isDraggingTimeline = false;
         timeline.style.cursor = 'default';
+      }
+    });
+
+    timeline.addEventListener('dragover', (e) => {
+      const block = e.target.closest('.block');
+      if (block) {
+        e.preventDefault();
+        block.classList.add('dimmed');
+      }
+    });
+
+    timeline.addEventListener('dragleave', (e) => {
+      const block = e.target.closest('.block');
+      if (block) {
+        block.classList.remove('dimmed');
+      }
+    });
+
+    timeline.addEventListener('drop', (e) => {
+      const effect = e.dataTransfer.getData('effect');
+      const targetMain = e.target.closest('.block');
+      if (targetMain) {
+        targetMain.classList.remove('dimmed');
+      }
+      if (effect === 'rainbowify' && targetMain) {
+        createRainbowifyBlock(targetMain);
+        e.preventDefault();
+      } else if (effect === 'rainbowify-move' && targetMain) {
+        if (draggedRainbowifyBlock) {
+          blocks.forEach(b => {
+            if (b._rainbowify === draggedRainbowifyBlock) {
+              removeRainbowifyFromMain(b);
+              b._rainbowify.remove();
+              b._rainbowify = null;
+            }
+          });
+          createRainbowifyBlock(targetMain);
+        }
+        e.preventDefault();
       }
     });
 
