@@ -752,23 +752,20 @@
       }
 
       const blockLeft = parseInt(activeBlock.style.left);
-      const blockWidth = parseInt(activeBlock.style.width);
       const fadeIn = parseInt(activeBlock.dataset.fadeIn);
       const fadeOut = parseInt(activeBlock.dataset.fadeOut);
       const totalTicks = parseInt(activeBlock.dataset.duration);
 
-      const localX = playbackX - blockLeft;
-      const fadeInTicks = fadeIn;
-      const fadeOutTicks = fadeOut;
+      // Convert the playhead position relative to the block from pixels to ticks
+      const localX = playbackX - blockLeft; // in pixels
+      const localTick = localX / TICK_SIZE;  // now in ticks
 
       let opacity = 1;
-
-      if (fadeInTicks > 0 && localX < fadeInTicks) {
-        opacity = localX / fadeInTicks;
+      if (fadeIn > 0 && localTick < fadeIn) {
+        opacity = localTick / fadeIn;
       }
-
-      if (fadeOutTicks > 0 && localX >= totalTicks - fadeOutTicks) {
-        opacity = (totalTicks - localX) / fadeOutTicks;
+      if (fadeOut > 0 && localTick >= totalTicks - fadeOut) {
+        opacity = (totalTicks - localTick) / fadeOut;
       }
 
       const formattedHTML = parseMinecraftCodes(activeBlock.dataset.text);
