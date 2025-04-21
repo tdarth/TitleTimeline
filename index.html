@@ -10,7 +10,7 @@
   <meta property="og:image" content="https://tdarth.github.io/TitleTimeline/logo.png" />
   <meta property="og:url" content="https://tdarth.github.io/TitleTimeline/" />
   <meta property="og:type" content="website" />
-  
+
   <title>Title Timeline</title>
   <link rel="shortcut icon" type="image/png" href="favicon.png">
   <style>
@@ -722,11 +722,11 @@
           menu.remove();
         };
         menu.querySelector('#cancelBtn').onclick = () => menu.remove();
-        menu.querySelector('#deleteBtn').onclick = () => { 
-          if (block._rainbowify) { block._rainbowify.remove(); } 
-          block.remove(); 
-          blocks = blocks.filter(b => b !== block); 
-          menu.remove(); 
+        menu.querySelector('#deleteBtn').onclick = () => {
+          if (block._rainbowify) { block._rainbowify.remove(); }
+          block.remove();
+          blocks = blocks.filter(b => b !== block);
+          menu.remove();
         };
         menu.querySelector('#duplicateBtn').onclick = () => { addBlock(block); menu.remove(); };
 
@@ -1012,6 +1012,7 @@
         const label = block.querySelector('.duration-label');
         if (label) label.textContent = `${duration}t`;
         currentLeft += (duration * TICK_SIZE) + (gaps[index + 1] || 0);
+        updateRainbowifyBlockPosition(block);
       });
     }
 
@@ -1024,6 +1025,7 @@
         .forEach(block => {
           block.style.left = `${currentTime * TICK_SIZE}px`;
           currentTime += parseInt(block.dataset.duration) + space;
+          updateRainbowifyBlockPosition(block);
         });
     }
 
@@ -1286,11 +1288,11 @@
                 menu.remove();
               };
               menu.querySelector('#cancelBtn').onclick = () => menu.remove();
-              menu.querySelector('#deleteBtn').onclick = () => { 
-                if (block._rainbowify) { block._rainbowify.remove(); } 
-                block.remove(); 
-                blocks = blocks.filter(b => b !== block); 
-                menu.remove(); 
+              menu.querySelector('#deleteBtn').onclick = () => {
+                if (block._rainbowify) { block._rainbowify.remove(); }
+                block.remove();
+                blocks = blocks.filter(b => b !== block);
+                menu.remove();
               };
               menu.querySelector('#duplicateBtn').onclick = () => { addBlock(block); menu.remove(); };
 
