@@ -594,10 +594,13 @@
       mainBlock.dataset.text = result;
       const leftHandle = mainBlock.querySelector('.left-handle');
       const rightHandle = mainBlock.querySelector('.right-handle');
+      const durationLabel = mainBlock.querySelector('.duration-label');
       mainBlock.innerHTML = result.split('\n').map(line => `<div>${line}</div>`).join('');
       mainBlock.setAttribute('title', result);
+      if (durationLabel) mainBlock.appendChild(durationLabel);
       if (leftHandle) mainBlock.appendChild(leftHandle);
       if (rightHandle) mainBlock.appendChild(rightHandle);
+
       updateFadeVisuals(mainBlock);
     }
 
@@ -606,10 +609,13 @@
       mainBlock.dataset.text = strippedText;
       const leftHandle = mainBlock.querySelector('.left-handle');
       const rightHandle = mainBlock.querySelector('.right-handle');
+      const durationLabel = mainBlock.querySelector('.duration-label');
       mainBlock.innerHTML = strippedText.split('\n').map(line => `<div>${line}</div>`).join('');
       mainBlock.setAttribute('title', strippedText);
+      if (durationLabel) mainBlock.appendChild(durationLabel);
       if (leftHandle) mainBlock.appendChild(leftHandle);
       if (rightHandle) mainBlock.appendChild(rightHandle);
+
       updateFadeVisuals(mainBlock);
     }
 
@@ -742,6 +748,8 @@
 
       timeline.appendChild(block);
       blocks.push(block);
+
+      adjustBlockPositions();
 
       if (duplicate && duplicate._rainbowify) {
         createRainbowifyBlock(block);
