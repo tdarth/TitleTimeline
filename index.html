@@ -719,6 +719,10 @@
             .map(line => `<div>${line}</div>`)
             .join('');
           block.setAttribute('title', block.dataset.text);
+          const durationLabel = document.createElement('div');
+          durationLabel.className = 'duration-label';
+          durationLabel.textContent = `${block.dataset.duration}t`;
+          block.appendChild(durationLabel);
           block.appendChild(leftHandle);
           block.appendChild(rightHandle);
           updateFadeVisuals(block);
@@ -748,28 +752,130 @@
       let dragging = false;
       let draggingHappened = false;
       let offsetX = 0;
-      el.addEventListener('mousedown', e => {
+      let distanceLines = { left: null, right: null };
+      let distanceLabels = { left: null, right: null };
+
+      el.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('resize-handle')) return;
         offsetX = e.clientX - el.offsetLeft;
         dragging = true;
+
+        // Create dotted lines and labels
+        if (!distanceLines.left) {
+          distanceLines.left = document.createElement('div');
+          distanceLines.left.style.position = 'absolute';
+          distanceLines.left.style.borderTop = '2px dotted white';
+          distanceLines.left.style.height = '0';
+          distanceLines.left.style.zIndex = '10';
+          distanceLines.left.style.transition = 'left 0.1s ease, width 0.1s ease';
+          document.body.appendChild(distanceLines.left);
+
+          distanceLabels.left = document.createElement('div');
+          distanceLabels.left.style.position = 'absolute';
+          distanceLabels.left.style.color = 'white';
+          distanceLabels.left.style.fontSize = '12px';
+          distanceLabels.left.style.textAlign = 'center';
+          distanceLabels.left.style.zIndex = '11';
+          distanceLabels.left.style.background = '#444';
+          distanceLabels.left.style.padding = '2px 4px';
+          distanceLabels.left.style.borderRadius = '2px';
+          distanceLabels.left.style.transition = 'left 0.1s ease';
+          document.body.appendChild(distanceLabels.left);
+        }
+        if (!distanceLines.right) {
+          distanceLines.right = document.createElement('div');
+          distanceLines.right.style.position = 'absolute';
+          distanceLines.right.style.borderTop = '2px dotted white';
+          distanceLines.right.style.height = '0';
+          distanceLines.right.style.zIndex = '10';
+          distanceLines.right.style.transition = 'left 0.1s ease, width 0.1s ease';
+          document.body.appendChild(distanceLines.right);
+
+          distanceLabels.right = document.createElement('div');
+          distanceLabels.right.style.position = 'absolute';
+          distanceLabels.right.style.color = 'white';
+          distanceLabels.right.style.fontSize = '12px';
+          distanceLabels.right.style.textAlign = 'center';
+          distanceLabels.right.style.zIndex = '11';
+          distanceLabels.right.style.background = '#444';
+          distanceLabels.right.style.padding = '2px 4px';
+          distanceLabels.right.style.borderRadius = '2px';
+          distanceLabels.right.style.transition = 'left 0.1s ease';
+          document.body.appendChild(distanceLabels.right);
+        }
+
         e.preventDefault();
       });
 
-      document.addEventListener('mousemove', e => {
+      document.addEventListener('mousemove', (e) => {
         if (!dragging) return;
+
         const candidate = Math.round((e.clientX - offsetX) / TICK_SIZE) * TICK_SIZE;
         const currentWidth = parseInt(el.style.width);
+
         let collision = false;
-        blocks.forEach(other => {
+        let closestLeftBlock = null;
+        let closestRightBlock = null;
+
+        blocks.forEach((other) => {
           if (other === el) return;
           const otherLeft = parseInt(other.style.left);
           const otherWidth = parseInt(other.style.width);
           const otherRight = otherLeft + otherWidth;
-          const candidateRight = candidate + currentWidth;
-          if (!(candidateRight <= otherLeft || candidate >= otherRight)) {
-            collision = true;
+
+          if (otherRight <= candidate) {
+            if (!closestLeftBlock || otherRight > parseInt(closestLeftBlock.style.left) + parseInt(closestLeftBlock.style.width)) {
+              closestLeftBlock = other;
+            }
+          } else if (otherLeft >= candidate + currentWidth) {
+            if (!closestRightBlock || otherLeft < parseInt(closestRightBlock.style.left)) {
+              closestRightBlock = other;
+            }
           }
         });
+
+        const leftDistance = closestLeftBlock
+          ? candidate - (parseInt(closestLeftBlock.style.left) + parseInt(closestLeftBlock.style.width))
+          : null;
+
+        const rightDistance = closestRightBlock
+          ? parseInt(closestRightBlock.style.left) - (candidate + currentWidth)
+          : null;
+
+        if (leftDistance !== null) {
+          const leftBlockRight = parseInt(closestLeftBlock.style.left) + parseInt(closestLeftBlock.style.width);
+          distanceLines.left.style.left = `${leftBlockRight}px`;
+          distanceLines.left.style.top = `${el.offsetTop + el.offsetHeight / 2}px`;
+          distanceLines.left.style.width = `${leftDistance}px`;
+
+          const labelWidth = distanceLabels.left.offsetWidth;
+          distanceLabels.left.style.left = `${leftBlockRight + leftDistance / 2 - labelWidth / 2}px`;
+          distanceLabels.left.style.top = `${el.offsetTop + el.offsetHeight / 2 - 20}px`;
+          distanceLabels.left.textContent = `${leftDistance / TICK_SIZE} ticks`;
+          distanceLines.left.style.display = 'block';
+          distanceLabels.left.style.display = 'block';
+        } else {
+          distanceLines.left.style.display = 'none';
+          distanceLabels.left.style.display = 'none';
+        }
+
+        if (rightDistance !== null) {
+          const rightBlockLeft = parseInt(closestRightBlock.style.left);
+          distanceLines.right.style.left = `${candidate + currentWidth}px`;
+          distanceLines.right.style.top = `${el.offsetTop + el.offsetHeight / 2}px`;
+          distanceLines.right.style.width = `${rightDistance}px`;
+
+          const labelWidth = distanceLabels.right.offsetWidth;
+          distanceLabels.right.style.left = `${candidate + currentWidth + rightDistance / 2 - labelWidth / 2}px`;
+          distanceLabels.right.style.top = `${el.offsetTop + el.offsetHeight / 2 - 20}px`;
+          distanceLabels.right.textContent = `${rightDistance / TICK_SIZE} ticks`;
+          distanceLines.right.style.display = 'block';
+          distanceLabels.right.style.display = 'block';
+        } else {
+          distanceLines.right.style.display = 'none';
+          distanceLabels.right.style.display = 'none';
+        }
+
         if (!collision) {
           if (el.style.left !== `${Math.max(0, candidate)}px`) {
             draggingHappened = true;
@@ -779,6 +885,23 @@
             updateRainbowifyBlockPosition(el);
           }
         }
+
+        blocks.forEach((otherBlock) => {
+          if (otherBlock === el) return;
+
+          const otherLeft = parseInt(otherBlock.style.left);
+          const otherRight = otherLeft + parseInt(otherBlock.style.width);
+          const elLeft = parseInt(el.style.left);
+          const elRight = elLeft + parseInt(el.style.width);
+
+          if (!(elRight <= otherLeft || elLeft >= otherRight)) {
+            el.classList.add('dimmed');
+            otherBlock.classList.add('dimmed');
+          } else {
+            el.classList.remove('dimmed');
+            otherBlock.classList.remove('dimmed');
+          }
+        });
       });
 
       document.addEventListener('mouseup', () => {
@@ -790,7 +913,36 @@
         }
         dragging = false;
         draggingHappened = false;
+
+        if (distanceLines.left) distanceLines.left.remove();
+        if (distanceLines.right) distanceLines.right.remove();
+        if (distanceLabels.left) distanceLabels.left.remove();
+        if (distanceLabels.right) distanceLabels.right.remove();
+        distanceLines = { left: null, right: null };
+        distanceLabels = { left: null, right: null };
+
+        adjustBlockPositions();
+
+        blocks.forEach((block) => block.classList.remove('dimmed'));
       });
+    }
+
+    function adjustBlockPositions() {
+      const sortedBlocks = [...blocks].sort((a, b) => parseInt(a.style.left) - parseInt(b.style.left));
+
+      for (let i = 1; i < sortedBlocks.length; i++) {
+        const prevBlock = sortedBlocks[i - 1];
+        const currentBlock = sortedBlocks[i];
+        const prevRight = parseInt(prevBlock.style.left) + parseInt(prevBlock.style.width);
+        const currentLeft = parseInt(currentBlock.style.left);
+
+        if (currentLeft < prevRight) {
+          currentBlock.style.left = `${prevRight}px`;
+          if (currentBlock._rainbowify) {
+            updateRainbowifyBlockPosition(currentBlock);
+          }
+        }
+      }
     }
 
     function makeResizable(el, leftHandle, rightHandle) {
