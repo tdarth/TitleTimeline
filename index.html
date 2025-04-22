@@ -645,6 +645,9 @@
             let shift = candidateRight - bLeft;
             b.style.left = `${bLeft + shift}px`;
             candidateRight = parseInt(b.style.left) + parseInt(b.style.width);
+            if (b._rainbowify) {
+              updateRainbowifyBlockPosition(b);
+            }
           }
         });
         block.style.left = `${candidateLeft}px`;
